@@ -1,0 +1,71 @@
+{
+  "_meta": {
+    "description": "Decline code taxonomy for Phoenix, bucketed by recovery action rather than by error source. Compiled from Razorpay's public error reference and Stripe dunning-management benchmarks.",
+    "categories": {
+      "technical_retry": "Transient failure, no customer action needed. Retry soon.",
+      "customer_retry_delay": "Recoverable, but needs a time delay (e.g. payday timing) before retrying.",
+      "customer_retry_immediate": "Customer-driven interruption (cancelled, wrong OTP); safe to let them retry immediately.",
+      "customer_action_required": "Retrying is pointless without the customer changing something (card, VPA, bank registration). Send a comms/update flow instead of retrying.",
+      "limit_based_retry": "Blocked by a daily/frequency limit. Retry only after the limit window resets (~24h).",
+      "hard_stop_compliance": "Never retry. Escalate / flag. Includes fraud, risk-check, and compliance-flagged declines."
+    },
+    "stopping_rule_defaults": {
+      "max_retries_soft_decline": 4,
+      "max_retry_window_days": 14,
+      "hard_stop_retries": 0,
+      "afa_required_above_inr": 15000,
+      "afa_required_above_inr_designated_categories": 100000
+    }
+  },
+  "decline_codes": [
+    {"code": "bank_technical_error", "category": "technical_retry", "retry_delay_hours": 1, "requires_customer_action": false, "notes": "Core banking system technical error, usually transient."},
+    {"code": "gateway_technical_error", "category": "technical_retry", "retry_delay_hours": 1, "requires_customer_action": false},
+    {"code": "bank_not_available", "category": "technical_retry", "retry_delay_hours": 2, "requires_customer_action": false},
+    {"code": "bank_cutoff_in_progress", "category": "technical_retry", "retry_delay_hours": 4, "requires_customer_action": false, "notes": "Periodic bank CBS cutoff window."},
+    {"code": "payment_declined_due_to_high_traffic", "category": "technical_retry", "retry_delay_hours": 1, "requires_customer_action": false},
+    {"code": "server_error", "category": "technical_retry", "retry_delay_hours": 1, "requires_customer_action": false, "notes": "Razorpay-side server error."},
+    {"code": "issuer_technical_error", "category": "technical_retry", "retry_delay_hours": 2, "requires_customer_action": false},
+    {"code": "upi_app_technical_error", "category": "technical_retry", "retry_delay_hours": 1, "requires_customer_action": false},
+    {"code": "request_timed_out", "category": "technical_retry", "retry_delay_hours": 1, "requires_customer_action": false},
+    {"code": "invalid_response_from_gateway", "category": "technical_retry", "retry_delay_hours": 1, "requires_customer_action": false},
+    {"code": "verification_failed", "category": "technical_retry", "retry_delay_hours": 2, "requires_customer_action": false},
+    {"code": "psp_app_not_available", "category": "technical_retry", "retry_delay_hours": 2, "requires_customer_action": false},
+    {"code": "psp_not_available", "category": "technical_retry", "retry_delay_hours": 2, "requires_customer_action": false},
+
+    {"code": "insufficient_funds", "category": "customer_retry_delay", "retry_delay_hours": 60, "requires_customer_action": false, "notes": "~2-3 day delay, payday-aware timing recommended per Stripe benchmarks."},
+
+    {"code": "authentication_failed", "category": "customer_retry_immediate", "retry_delay_hours": 0, "requires_customer_action": true, "notes": "OTP/3DS failed or cancelled at auth screen; customer can retry right away."},
+    {"code": "payment_cancelled", "category": "customer_retry_immediate", "retry_delay_hours": 0, "requires_customer_action": true},
+    {"code": "payment_timed_out", "category": "customer_retry_immediate", "retry_delay_hours": 0, "requires_customer_action": true},
+
+    {"code": "card_expired", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true, "notes": "~25% of all failures per Stripe data. Retrying the same card is pointless — send card-update flow immediately."},
+    {"code": "card_number_invalid", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "bank_account_invalid", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "bank_account_validation_failed", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "incorrect_cvv", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "incorrect_otp", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "incorrect_card_details", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "incorrect_card_expiry_date", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "incorrect_cardholder_name", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "incorrect_pin", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "incorrect_atm_pin", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "invalid_vpa", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "user_not_registered_for_netbanking", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "pin_not_set", "category": "customer_action_required", "retry_delay_hours": null, "requires_customer_action": true},
+
+    {"code": "transaction_daily_limit_exceeded", "category": "limit_based_retry", "retry_delay_hours": 24, "requires_customer_action": false},
+    {"code": "transaction_limit_exceeded", "category": "limit_based_retry", "retry_delay_hours": 24, "requires_customer_action": true, "notes": "Card-level credit/debit limit; may need a different instrument."},
+    {"code": "transaction_frequency_limit_exceeded", "category": "limit_based_retry", "retry_delay_hours": 24, "requires_customer_action": false, "notes": "NPCI frequency limit for UPI."},
+    {"code": "transaction_daily_count_exceeded", "category": "limit_based_retry", "retry_delay_hours": 24, "requires_customer_action": false},
+    {"code": "otp_attempts_exceeded", "category": "limit_based_retry", "retry_delay_hours": 1, "requires_customer_action": true},
+    {"code": "pin_attempts_exceeded", "category": "limit_based_retry", "retry_delay_hours": 1, "requires_customer_action": true},
+    {"code": "credit_limit_exceeded", "category": "limit_based_retry", "retry_delay_hours": 24, "requires_customer_action": true},
+
+    {"code": "debit_instrument_blocked", "category": "hard_stop_compliance", "retry_delay_hours": null, "requires_customer_action": true, "notes": "Card blocked by issuer or customer. No retry — customer must use a different instrument."},
+    {"code": "payment_risk_check_failed", "category": "hard_stop_compliance", "retry_delay_hours": null, "requires_customer_action": true, "notes": "Risk check failed at Razorpay, gateway, or issuer level."},
+    {"code": "transaction_on_vpa_restricted", "category": "hard_stop_compliance", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "compliance_violation", "category": "hard_stop_compliance", "retry_delay_hours": null, "requires_customer_action": false, "notes": "Never retry automatically. Route to manual/compliance review."},
+    {"code": "card_declined", "category": "hard_stop_compliance", "retry_delay_hours": null, "requires_customer_action": true},
+    {"code": "user_not_eligible", "category": "hard_stop_compliance", "retry_delay_hours": null, "requires_customer_action": true, "notes": "Failed eligibility/credit check."}
+  ]
+}
