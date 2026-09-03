@@ -1,0 +1,10 @@
+faker
+pandas
+fastapi
+uvicorn
+psycopg2-binary
+sentence-transformers
+faiss-cpu
+langchain-groq
+apscheduler
+python-dotenv
