@@ -29,7 +29,7 @@ MODEL_NAME = "all-MiniLM-L6-v2"  # small, local, no API key needed
 
 def chunk_best_practices(path: Path) -> list[dict]:
     """Split best_practices.md into one chunk per ## section."""
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     sections = re.split(r"\n(?=## )", text)
     chunks = []
     for section in sections:
@@ -50,7 +50,7 @@ def chunk_best_practices(path: Path) -> list[dict]:
 
 def chunk_decline_codes(path: Path) -> list[dict]:
     """Turn each decline code entry into a short retrievable text chunk."""
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     category_desc = data["_meta"]["categories"]
     chunks = []
     for entry in data["decline_codes"]:

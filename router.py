@@ -21,7 +21,7 @@ _decline_lookup = None
 def _load_decline_codes():
     global _decline_lookup
     if _decline_lookup is None:
-        data = json.loads(DECLINE_CODES_PATH.read_text())
+        data = json.loads(DECLINE_CODES_PATH.read_text(encoding="utf-8"))
         _decline_lookup = {c["code"]: c for c in data["decline_codes"]}
     return _decline_lookup
 
