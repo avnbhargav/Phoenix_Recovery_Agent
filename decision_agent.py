@@ -8,13 +8,14 @@ the LLM or the database directly — it's a pure decision function so the
 logic is easy to test and easy to defend in a panel interview ("here's
 exactly why the agent stopped on this transaction").
 
-Rules (rule_version "v1"):
-  1. AFA override: if the transaction requires Additional Factor
+Rules (rule_version "v1"), checked in this order:
+  1. Hard stop: decline categories in HARD_STOP_CATEGORIES are never
+     retried, at any attempt number or amount. Escalate immediately.
+     This is checked FIRST — a fraud/compliance flag always wins,
+     even on a transaction that would otherwise require AFA.
+  2. AFA override: if the transaction requires Additional Factor
      Authentication (amount > RBI's AFA-free threshold), NEVER retry
-     silently, regardless of decline category. Always notify the
-     customer to re-authenticate. This overrides everything else below.
-  2. Hard stop: decline categories in HARD_STOP_CATEGORIES are never
-     retried, at any attempt number. Escalate immediately.
+     silently. Always notify the customer to re-authenticate.
   3. Customer-action-required: no point retrying (e.g. expired card).
      Action is "notify" — send a comms flow, not a retry.
   4. Retryable categories (technical_retry, customer_retry_delay,
@@ -65,7 +66,26 @@ def decide(transaction: dict, classification: dict) -> Decision:
     afa_required = classification["afa_required"]
     rag_sources = [c["title"] for c in classification.get("retrieved_context", [])]
 
-    # Rule 1: AFA override — always wins, regardless of category
+    # Rule 1 (highest priority): hard stop — fraud/compliance/blocked instrument.
+    # This must be checked BEFORE the AFA override — a fraud-flagged transaction
+    # should never be routed to a re-authentication notification just because
+    # of its amount. Compliance/risk concerns always win.
+    if category in HARD_STOP_CATEGORIES:
+        return Decision(
+            txn_id=txn_id,
+            final_action="escalate",
+            stopping_reason=f"hard_stop:{category}",
+            escalation_flag=True,
+            scheduled_at=None,
+            reasoning=(
+                f"Decline category '{category}' indicates a risk/compliance/blocked-instrument "
+                "failure. These are never retried automatically — escalating for manual review."
+            ),
+            rag_sources_used=rag_sources,
+        )
+
+    # Rule 2: AFA override — if the transaction requires re-authentication,
+    # never retry silently, regardless of category.
     if afa_required:
         return Decision(
             txn_id=txn_id,
@@ -78,21 +98,6 @@ def decide(transaction: dict, classification: dict) -> Decision:
                 "payments. Per the 2026 e-mandate framework, this requires fresh "
                 "Additional Factor Authentication and cannot be retried silently. "
                 "Routing to a re-authentication notification instead of an automatic retry."
-            ),
-            rag_sources_used=rag_sources,
-        )
-
-    # Rule 2: hard stop — fraud/compliance/blocked instrument, never retry
-    if category in HARD_STOP_CATEGORIES:
-        return Decision(
-            txn_id=txn_id,
-            final_action="escalate",
-            stopping_reason=f"hard_stop:{category}",
-            escalation_flag=True,
-            scheduled_at=None,
-            reasoning=(
-                f"Decline category '{category}' indicates a risk/compliance/blocked-instrument "
-                "failure. These are never retried automatically — escalating for manual review."
             ),
             rag_sources_used=rag_sources,
         )
