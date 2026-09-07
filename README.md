@@ -111,4 +111,4 @@ Optional — to run against a live Postgres instance instead of dry-run mode, se
 
 ## Pitch video
 
-[link here]
+https://www.youtube.com/watch?v=DNTxjXqqau8
